@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "build": "npx prisma generate",
-    "postinstall": "npx prisma generate",
+    "build": "PRISMA_SKIP_DATABASE_URL_VALIDATION=true npx prisma generate",
+    "postinstall": "PRISMA_SKIP_DATABASE_URL_VALIDATION=true npx prisma generate",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
