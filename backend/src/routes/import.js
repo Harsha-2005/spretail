@@ -158,11 +158,24 @@ router.post('/sessions/:id/commit', async (req, res) => {
   });
   const nameToUser = {};
   groupMembers.forEach(m => {
+    // Index by full name (lowercase)
     nameToUser[m.user.name.toLowerCase()] = m.user;
+    // Also index by first name only (e.g. "Aisha Kapoor" → also keyed as "aisha")
+    const firstName = m.user.name.split(' ')[0].toLowerCase();
+    if (!nameToUser[firstName]) nameToUser[firstName] = m.user;
+  });
+
+
+  // Build known name list from actual group members (both full name and first name)
+  const knownGroupNames = [];
+  groupMembers.forEach(m => {
+    knownGroupNames.push(m.user.name);                    // "Aisha Kapoor"
+    knownGroupNames.push(m.user.name.split(' ')[0]);     // "Aisha"
   });
 
   const report = {
     imported: [],
+
     skipped: [],
     settlements: [],
     errors: [],
@@ -211,9 +224,9 @@ router.post('/sessions/:id/commit', async (req, res) => {
     if (isConfirmedSettlement) {
       // Record as settlement
       try {
-        const payerName = normalizeName(row.paid_by?.trim()).canonical;
+        const payerName = normalizeName(row.paid_by?.trim(), knownGroupNames).canonical;
         const recipientName = row.split_with?.split(';')[0]?.trim();
-        const recipientNorm = normalizeName(recipientName).canonical;
+        const recipientNorm = normalizeName(recipientName, knownGroupNames).canonical;
 
         const payer = nameToUser[payerName?.toLowerCase()];
         const recipient = nameToUser[recipientNorm?.toLowerCase()];
@@ -250,7 +263,7 @@ router.post('/sessions/:id/commit', async (req, res) => {
       }
 
       // Resolve payer
-      const payerNorm = normalizeName(row.paid_by?.trim());
+      const payerNorm = normalizeName(row.paid_by?.trim(), knownGroupNames);
       const modifyAnomaly = rowAnomalies.find(a => a.anomalyType === 'UNKNOWN_MEMBER' && a.userDecision === 'modify');
       const payerName = modifyAnomaly?.resolvedData?.canonical || payerNorm.canonical;
       const payer = nameToUser[payerName?.toLowerCase()];
@@ -275,7 +288,7 @@ router.post('/sessions/:id/commit', async (req, res) => {
       // Resolve member names to user IDs
       const splitMembers = [];
       for (const m of rawMembers) {
-        const norm = normalizeName(m.name);
+        const norm = normalizeName(m.name, knownGroupNames);
         const user = nameToUser[norm.canonical?.toLowerCase()];
         if (user) {
           splitMembers.push({ userId: user.id, value: m.value || 1 });
